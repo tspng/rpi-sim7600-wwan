@@ -7,9 +7,9 @@
  */
 
 /*
- * history 
+ * history
  * V1.00 - first release  -20160822
-*/
+ */
 
 #include <linux/module.h>
 #include <linux/netdevice.h>
@@ -19,7 +19,6 @@
 #include <linux/usb.h>
 #include <linux/usb/cdc.h>
 #include <linux/usb/usbnet.h>
-
 
 /* very simplistic detection of IPv4 or IPv6 headers */
 static bool possibly_iphdr(const char *data)
@@ -34,14 +33,14 @@ static bool possibly_iphdr(const char *data)
 static int simcom_wwan_bind(struct usbnet *dev, struct usb_interface *intf)
 {
 	int rv = -EINVAL;
-  
-	//struct usb_driver *subdriver = NULL;
+
+	// struct usb_driver *subdriver = NULL;
 	atomic_t *pmcount = (void *)&dev->data[1];
 
-  /* ignore any interface with additional descriptors */
+	/* ignore any interface with additional descriptors */
 	if (intf->cur_altsetting->extralen)
 		goto err;
-  
+
 	/* Some makes devices where the interface descriptors and endpoint
 	 * configurations of two or more interfaces are identical, even
 	 * though the functions are completely different.  If set, then
@@ -50,7 +49,8 @@ static int simcom_wwan_bind(struct usbnet *dev, struct usb_interface *intf)
 	 * all of them
 	 */
 	if (dev->driver_info->data &&
-	    !test_bit(intf->cur_altsetting->desc.bInterfaceNumber, &dev->driver_info->data)) {
+		!test_bit(intf->cur_altsetting->desc.bInterfaceNumber, &dev->driver_info->data))
+	{
 		dev_info(&intf->dev, "not on our whitelist - ignored");
 		rv = -ENODEV;
 		goto err;
@@ -64,7 +64,8 @@ static int simcom_wwan_bind(struct usbnet *dev, struct usb_interface *intf)
 		goto err;
 
 	/* require interrupt endpoint for subdriver */
-	if (!dev->status) {
+	if (!dev->status)
+	{
 		rv = -EINVAL;
 		goto err;
 	}
@@ -74,29 +75,30 @@ static int simcom_wwan_bind(struct usbnet *dev, struct usb_interface *intf)
 
 	printk("simcom usbnet bind here\n");
 
-  /*
-   * SIMCOM SIM7600 only support the RAW_IP mode, so the host net driver would
-   * remove the arp so the packets can transmit to the modem
-  */
-  dev->net->flags |= IFF_NOARP;
-    
-  /* make MAC addr easily distinguishable from an IP header */
-	if (possibly_iphdr(dev->net->dev_addr)) {
-		dev->net->dev_addr[0] |= 0x02;	/* set local assignment bit */
-		dev->net->dev_addr[0] &= 0xbf;	/* clear "IP" bit */
+	/*
+	 * SIMCOM SIM7600 only support the RAW_IP mode, so the host net driver would
+	 * remove the arp so the packets can transmit to the modem
+	 */
+	dev->net->flags |= IFF_NOARP;
+
+	/* make MAC addr easily distinguishable from an IP header */
+	if (possibly_iphdr(dev->net->dev_addr))
+	{
+		dev->net->dev_addr[0] |= 0x02; /* set local assignment bit */
+		dev->net->dev_addr[0] &= 0xbf; /* clear "IP" bit */
 	}
-	
-  /*
-   * SIMCOM SIM7600 need set line state
-  */
-  usb_control_msg(
-      interface_to_usbdev(intf),
-      usb_sndctrlpipe(interface_to_usbdev(intf), 0),
-      0x22, //USB_CDC_REQ_SET_CONTROL_LINE_STATE
-      0x21, //USB_DIR_OUT | USB_TYPE_CLASS| USB_RECIP_INTERFACE
-      1, //line state 1
-      intf->cur_altsetting->desc.bInterfaceNumber,
-      NULL,0,100);
+
+	/*
+	 * SIMCOM SIM7600 need set line state
+	 */
+	usb_control_msg(
+		interface_to_usbdev(intf),
+		usb_sndctrlpipe(interface_to_usbdev(intf), 0),
+		0x22, // USB_CDC_REQ_SET_CONTROL_LINE_STATE
+		0x21, // USB_DIR_OUT | USB_TYPE_CLASS| USB_RECIP_INTERFACE
+		1,	  // line state 1
+		intf->cur_altsetting->desc.bInterfaceNumber,
+		NULL, 0, 100);
 
 err:
 	return rv;
@@ -121,7 +123,7 @@ static int simcom_wwan_suspend(struct usb_interface *intf, pm_message_t message)
 	ret = usbnet_suspend(intf, message);
 	if (ret < 0)
 		goto err;
-		
+
 err:
 	return ret;
 }
@@ -130,7 +132,7 @@ static int simcom_wwan_resume(struct usb_interface *intf)
 {
 	struct usbnet *dev = usb_get_intfdata(intf);
 	int ret = 0;
-	
+
 	ret = usbnet_resume(intf);
 
 err:
@@ -141,30 +143,32 @@ err:
 struct sk_buff *simcom_wwan_tx_fixup(struct usbnet *dev, struct sk_buff *skb, gfp_t flags)
 {
 
-  //skip ethernet header 
-  if(skb_pull(skb, ETH_HLEN))
-  {
-    return skb;
-  }else
-  {
-    dev_err(&dev->intf->dev, "Packet Dropped\n");
-  }
+	// skip ethernet header
+	if (skb_pull(skb, ETH_HLEN))
+	{
+		return skb;
+	}
+	else
+	{
+		dev_err(&dev->intf->dev, "Packet Dropped\n");
+	}
 
-  if (skb != NULL)
-    dev_kfree_skb_any(skb);
+	if (skb != NULL)
+		dev_kfree_skb_any(skb);
 
-   return NULL;
+	return NULL;
 }
 
 static int simcom_wwan_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
 {
-  __be16 proto;
+	__be16 proto;
 
-  /* This check is no longer done by usbnet */
-  if (skb->len < dev->net->hard_header_len)
-    return 0;
+	/* This check is no longer done by usbnet */
+	if (skb->len < dev->net->hard_header_len)
+		return 0;
 
-	switch (skb->data[0] & 0xf0) {
+	switch (skb->data[0] & 0xf0)
+	{
 	case 0x40:
 		printk("packetv4 coming ,,,\n");
 		proto = htons(ETH_P_IP);
@@ -195,32 +199,32 @@ fix_dest:
 	return 1;
 }
 
-static const struct driver_info	simcom_wwan_usbnet_driver_info = {
-	.description	= "SIMCOM wwan/QMI device",
-	.flags		= FLAG_WWAN,
-	.bind		  = simcom_wwan_bind,
-	.unbind		= simcom_wwan_unbind,
-	.rx_fixup       = simcom_wwan_rx_fixup,
-	.tx_fixup       = simcom_wwan_tx_fixup,
+static const struct driver_info simcom_wwan_usbnet_driver_info = {
+	.description = "SIMCOM wwan/QMI device",
+	.flags = FLAG_WWAN,
+	.bind = simcom_wwan_bind,
+	.unbind = simcom_wwan_unbind,
+	.rx_fixup = simcom_wwan_rx_fixup,
+	.tx_fixup = simcom_wwan_tx_fixup,
 };
 
 static const struct usb_device_id products[] = {
-  {USB_DEVICE(0x1e0e, 0x9025), .driver_info = (unsigned long)&simcom_wwan_usbnet_driver_info },
-	{USB_DEVICE(0x1e0e, 0x9001), .driver_info = (unsigned long)&simcom_wwan_usbnet_driver_info },
-	{ } /* END */
+	{USB_DEVICE(0x1e0e, 0x9025), .driver_info = (unsigned long)&simcom_wwan_usbnet_driver_info},
+	{USB_DEVICE(0x1e0e, 0x9001), .driver_info = (unsigned long)&simcom_wwan_usbnet_driver_info},
+	{} /* END */
 };
 
 MODULE_DEVICE_TABLE(usb, products);
 
 static struct usb_driver simcom_wwan_usb_driver = {
-	.name		        = "simcom_wwan",
-	.id_table	      = products,
-	.probe		      =	usbnet_probe,
-	.disconnect	    = usbnet_disconnect,
+	.name = "simcom_wwan",
+	.id_table = products,
+	.probe = usbnet_probe,
+	.disconnect = usbnet_disconnect,
 #ifdef CONFIG_PM
-	.suspend	      = simcom_wwan_suspend,
-	.resume		      =	simcom_wwan_resume,
-	.reset_resume         = simcom_wwan_resume,
+	.suspend = simcom_wwan_suspend,
+	.resume = simcom_wwan_resume,
+	.reset_resume = simcom_wwan_resume,
 	.supports_autosuspend = 1,
 #endif
 };
